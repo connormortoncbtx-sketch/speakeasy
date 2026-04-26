@@ -1,5 +1,0 @@
-{
-  "_comment": "Featured custom cocktails that ship with the app. Add via the in-app form's 'Export JSON' button (paste here and commit), or edit directly. Format matches cocktails.json entries. Use 'custom-' prefix on id to avoid collisions.",
-  "version": 1,
-  "cocktails": []
-}
