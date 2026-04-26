@@ -417,9 +417,17 @@ function LibraryView({
 
 // ----- ADD INGREDIENT MODAL -----
 
-function AddIngredientModal({ inventory, onToggle, onClose, onClearAll, onApplyStarter, ingredientList }) {
+function AddIngredientModal({ inventory, onToggle, onClose, onClearAll, onApplyStarter, onAddCustom, ingredientList }) {
   const [search, setSearch] = useState('');
   const [activeCat, setActiveCat] = useState('all');
+  const [customInput, setCustomInput] = useState('');
+
+  const handleAddCustom = () => {
+    const name = customInput.trim();
+    if (!name) return;
+    onAddCustom(name);
+    setCustomInput('');
+  };
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -450,10 +458,27 @@ function AddIngredientModal({ inventory, onToggle, onClose, onClearAll, onApplyS
           </div>
           <button className="modal__close" onClick={onClose}><IX size={20}/></button>
         </div>
-        <div style={{padding:'0.75rem 1.25rem',borderBottom:'1px solid var(--border)'}}>
+        <div style={{padding:'0.75rem 1.25rem',borderBottom:'1px solid var(--border)',display:'flex',gap:'0.5rem',alignItems:'center',flexWrap:'wrap'}}>
           <button className="btn btn--ghost btn--small" onClick={onApplyStarter}>
-            <ISparkle size={12}/> Add Starter Pack
+            <ISparkle size={12}/> Starter Pack
           </button>
+          <div style={{flex:'1 1 14rem',display:'flex',gap:'0.25rem',minWidth:'12rem'}}>
+            <input
+              type="text"
+              placeholder="Add custom ingredient..."
+              value={customInput}
+              onChange={(e) => setCustomInput(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') handleAddCustom(); }}
+              style={{flex:1,padding:'0.4rem 0.6rem',background:'var(--surface-2)',border:'1px solid var(--border)',color:'var(--ink)',fontSize:'0.75rem'}}
+            />
+            <button
+              className="btn btn--ghost btn--small"
+              onClick={handleAddCustom}
+              disabled={!customInput.trim()}
+              style={{padding:'0.4rem 0.6rem'}}
+              aria-label="Add custom ingredient"
+            ><IPlus size={12}/></button>
+          </div>
         </div>
         <div style={{padding:'0.75rem 1.25rem',borderBottom:'1px solid var(--border)',display:'flex',flexDirection:'column',gap:'0.75rem'}}>
           <div className="search">
@@ -894,6 +919,22 @@ function App() {
     });
   }, [brandMap]);
 
+  const addToInventory = useCallback((rawName) => {
+    const norm = normalizeIngName(rawName);
+    if (!norm) return;
+    const canonical = brandMap[norm] || norm;
+    setInventory((prev) => {
+      if (prev.has(canonical)) {
+        showToast(`'${canonical}' already on shelf`);
+        return prev;
+      }
+      const next = new Set(prev);
+      next.add(canonical);
+      showToast(`Added ${canonical}`);
+      return next;
+    });
+  }, [brandMap, showToast]);
+
   const clearAll = useCallback(() => setInventory(new Set()), []);
 
   const ingredientList = useMemo(() => {
@@ -1025,7 +1066,7 @@ function App() {
 
       {showAdd && (
         <AddIngredientModal inventory={inventory} onToggle={toggle} onClose={() => setShowAdd(false)}
-          onClearAll={clearAll} onApplyStarter={applyStarterPack} ingredientList={ingredientList}/>
+          onClearAll={clearAll} onApplyStarter={applyStarterPack} onAddCustom={addToInventory} ingredientList={ingredientList}/>
       )}
       {selected && (
         <RecipeModal cocktail={selected} inventory={inventory} subs={substitutions}
