@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Setup The Bar</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+      max-width: 36rem; margin: 3rem auto; padding: 2rem;
+      background: #0c0907; color: #f5ead2;
+      line-height: 1.5;
+    }
+    h1 { font-family: 'Times New Roman', serif; letter-spacing: 0.2em; font-weight: 400; color: #d4a05a; margin: 0 0 0.5rem; }
+    .sub { color: #8a7a5e; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.3em; margin: 0 0 2rem; }
+    p { color: #d0c0a0; }
+    code { background: #15100b; padding: 0.15rem 0.4rem; color: #d4a05a; border: 1px solid #2e231b; }
+    button {
+      padding: 0.875rem 1.75rem; background: #8b5a2b; color: #f5ead2;
+      border: none; font-size: 0.75rem; letter-spacing: 0.25em;
+      text-transform: uppercase; cursor: pointer; transition: background 0.2s;
+      margin: 1rem 0;
+    }
+    button:hover { background: #a06b35; }
+    button:disabled { opacity: 0.4; cursor: not-allowed; }
+    progress { width: 100%; height: 0.5rem; margin: 1rem 0; appearance: none; }
+    progress::-webkit-progress-bar { background: #15100b; }
+    progress::-webkit-progress-value { background: #d4a05a; }
+    progress::-moz-progress-bar { background: #d4a05a; }
+    pre {
+      background: #15100b; padding: 1rem; overflow: auto;
+      max-height: 18rem; font-size: 0.75rem; color: #b09a78;
+      border: 1px solid #2e231b; margin: 1rem 0;
+      font-family: 'SF Mono', Consolas, monospace;
+    }
+    .ok { color: #d4a05a; font-weight: bold; }
+    ol li { margin-bottom: 0.5rem; }
+  </style>
+</head>
+<body>
+  <h1>SETUP THE BAR</h1>
+  <p class="sub">One-time catalog fetch</p>
+
+  <p>Click below to fetch the full <a href="https://www.thecocktaildb.com" style="color:#d4a05a">TheCocktailDB</a> catalog (~600 drinks). The browser will download <code>cocktails.json</code> to your Downloads folder.</p>
+
+  <p><strong>Then:</strong> move that file into <em>the-bar/</em> next to <code>index.html</code>, replacing the empty placeholder, before uploading to GitHub.</p>
+
+  <button id="go">Fetch Catalog</button>
+  <progress id="prog" value="0" max="26" hidden></progress>
+  <pre id="log">Ready.</pre>
+
+<script>
+const logEl = document.getElementById('log');
+const prog = document.getElementById('prog');
+const log = (msg) => {
+  logEl.textContent += '\n' + msg;
+  logEl.scrollTop = logEl.scrollHeight;
+};
+
+document.getElementById('go').addEventListener('click', async () => {
+  const btn = document.getElementById('go');
+  btn.disabled = true;
+  btn.textContent = 'Fetching...';
+  prog.hidden = false;
+  logEl.textContent = 'Starting...';
+
+  const seen = new Set();
+  const all = [];
+
+  const letters = 'abcdefghijklmnopqrstuvwxyz'.split('');
+  for (let i = 0; i < letters.length; i++) {
+    const letter = letters[i];
+    try {
+      const res = await fetch(
+        `https://www.thecocktaildb.com/api/json/v1/1/search.php?f=${letter}`
+      );
+      const data = await res.json();
+      const drinks = data.drinks || [];
+      let n = 0;
+      for (const d of drinks) {
+        if (seen.has(d.idDrink)) continue;
+        seen.add(d.idDrink);
+        all.push(normalize(d));
+        n++;
+      }
+      log(`  ${letter}  ${String(n).padStart(3)} new  (${all.length} total)`);
+    } catch (e) {
+      log(`  ${letter}  failed: ${e.message}`);
+    }
+    prog.value = i + 1;
+  }
+
+  all.sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
+
+  const payload = {
+    version: 1,
+    source: 'TheCocktailDB',
+    fetched_at: Math.floor(Date.now() / 1000),
+    count: all.length,
+    cocktails: all,
+  };
+
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'cocktails.json';
+  a.click();
+  URL.revokeObjectURL(url);
+
+  log(`\n✓ Done. Downloaded cocktails.json with ${all.length} cocktails.`);
+  log(`  Move it into the-bar/ folder next to index.html.`);
+
+  btn.textContent = 'Fetch Again';
+  btn.disabled = false;
+});
+
+function normalize(d) {
+  const ingredients = [];
+  for (let i = 1; i <= 15; i++) {
+    const name = d[`strIngredient${i}`];
+    const measure = d[`strMeasure${i}`];
+    if (name && name.trim()) {
+      ingredients.push({ name: name.trim(), measure: (measure || '').trim() });
+    }
+  }
+  return {
+    id: d.idDrink,
+    name: d.strDrink,
+    category: d.strCategory || 'Other',
+    alcoholic: d.strAlcoholic || 'Unknown',
+    glass: d.strGlass || '',
+    instructions: d.strInstructions || '',
+    image: d.strDrinkThumb || '',
+    iba: d.strIBA || '',
+    tags: (d.strTags || '').split(',').filter(Boolean),
+    ingredients,
+  };
+}
+</script>
+</body>
+</html>
